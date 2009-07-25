@@ -1,0 +1,81 @@
+require 'autotest/redgreen'
+require 'autotest/timestamp'
+
+# seeing spotty notifications on leopard?  try this:  http://gist.github.com/57003
+
+Autotest.add_hook :initialize do |at|
+  %w{.svn .hg .git vendor db index public tmp log}.each {|exception|at.add_exception(exception+'/')}
+  false
+end
+
+Autotest.send(:alias_method, :real_find_files, :find_files)
+Autotest.send(:define_method, :find_files) do |*args| 
+  real_find_files.reject do |k, v|
+    if (ENV['AUTOLIMIT'] and !ENV['AUTOLIMIT'].empty?)
+      !Regexp.new(ENV['AUTOLIMIT']).match(k)
+    end
+  end
+end
+
+TEST_THRESHOLD  = 10
+RATIO_THRESHOLD = 0.5
+
+module Autotest::Growl
+  def self.growl title, msg, img, pri=0, sticky="" 
+    puts "growlnotify -n autotest --image #{img} -p #{pri} -m #{msg.inspect} #{title} #{sticky}"
+    system "growlnotify -n autotest --image #{img} -p #{pri} -m #{msg.inspect} #{title}"
+  end
+
+  Autotest.add_hook :ran_command do |at|
+    image_root = File.expand_path('~/.autotest_images')
+    results = [at.results].flatten.join("\n")
+    output = results.slice(/(\d+)\stests?,\s(\d+)\sassertions?,\s(\d+)\sfailures?,\s(\d+)\serrors?/)
+    if output
+      tests = {}
+      tests[:total] = $~[1].to_i
+      tests[:bad]   = $~[3].to_i + $~[4].to_i
+      if tests[:bad] > 0
+        message = 'FAIL'
+        image = 'fail'
+        if tests[:bad] >= TEST_THRESHOLD and (tests[:bad] / tests[:total].to_f) >= RATIO_THRESHOLD
+          message = 'EPIC FAIL'
+          image = 'epic_fail' if File.exist?("#{image_root}/current/epic_fail.png")
+        end
+        growl message, output, "#{image_root}/current/#{image}.png", 2
+      else
+        growl 'WIN', output, "#{image_root}/current/pass.png", 1
+      end
+    end
+
+    output = results.slice(/(\d+)\sexamples?,\s(\d+)\sfailures?(?:,\s+(\d+)\s+pending)?/)
+    if output
+      tests = {}
+      tests[:examples] = $~[1].to_i
+      tests[:bad]      = $~[2].to_i
+      tests[:pending]  = $~[3].to_i
+      tests[:running]  = tests[:examples] - tests[:pending]
+      if tests[:bad] > 0
+        message = 'FAIL'
+        image = 'fail'
+        if tests[:bad] >= TEST_THRESHOLD and (tests[:bad] / tests[:running].to_f) >= RATIO_THRESHOLD
+          message = 'EPIC FAIL'
+          image = 'epic_fail' if File.exist?("#{image_root}/current/epic_fail.png")
+        end
+        growl message, output, "#{image_root}/current/#{image}.png", 2
+      elsif tests[:pending] > 0
+        image = 'pending'
+        message = 'Pending'
+        if tests[:pending] >= TEST_THRESHOLD and (tests[:pending] / tests[:examples].to_f) >= RATIO_THRESHOLD
+          message = 'Get to work!'
+          image = 'slacker' if File.exist?("#{image_root}/current/slacker.png")
+        end
+        growl message, output, "#{image_root}/current/#{image}.png", 0
+      else
+        growl 'WIN', output, "#{image_root}/current/pass.png", 1
+      end
+    end
+  end
+end
+
+require '~/autotest/sound/sound.rb'
+Autotest::Sound.sound_path = "~/autotest/sound/sound_fx/current/"

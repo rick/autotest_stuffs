@@ -1,0 +1,16 @@
+
+Drop this crap in your ~.
+
+Be sure to symlink autotest/sound/sound_fx/current to whichever batch of sounds you want to use (also in autotest/sound/sound_fx/)
+
+Might want to change whichever sound player this uses to actually match what you have installed.
+
+The AUTOLIMIT environment variable controls which tests get run.
+
+I have this function installed in my bash:
+
+function ts {
+  AUTOLIMIT=${1:-.} autospec
+}
+
+
