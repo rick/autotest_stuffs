@@ -1,4 +1,4 @@
-require 'autotest/redgreen'
+require 'autotest' #/redgreen'
 require 'autotest/timestamp'
 
 # seeing spotty notifications on leopard?  try this:  http://gist.github.com/57003
@@ -22,8 +22,8 @@ RATIO_THRESHOLD = 0.5
 
 module Autotest::Growl
   def self.growl title, msg, img, pri=0, sticky="" 
-    puts "growlnotify -n autotest --image #{img} -p #{pri} -m #{msg.inspect} #{title} #{sticky}"
-    system "growlnotify -n autotest --image #{img} -p #{pri} -m #{msg.inspect} #{title}"
+    puts "/opt/local/bin/growlnotify -n autotest --image #{img} -p #{pri} -m #{msg.inspect} #{title} #{sticky}"
+    system "/opt/local/bin/growlnotify -n autotest --image #{img} -p #{pri} -m #{msg.inspect} #{title}"
   end
 
   Autotest.add_hook :ran_command do |at|
